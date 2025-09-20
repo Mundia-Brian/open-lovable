@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import sandboxClient from '@/lib/sandbox-client';
 
 declare global {
   var activeSandbox: any;
@@ -7,6 +8,12 @@ declare global {
 export async function POST() {
   try {
     if (!global.activeSandbox) {
+      if (sandboxClient.isOffline) {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Advanced preview currently unavailable — try again later or contact support.' 
+        }, { status: 503 });
+      }
       return NextResponse.json({ 
         success: false, 
         error: 'No active sandbox' 
@@ -59,10 +66,23 @@ export async function POST() {
     
   } catch (error) {
     console.error('[create-zip] Error:', error);
+    const errorMessage = (error as Error).message;
+    
+    // Check if it's a sandbox-related error
+    if (errorMessage.includes('Sandbox unavailable') || errorMessage.includes('API key')) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Advanced preview currently unavailable — try again later or contact support.' 
+        }, 
+        { status: 503 }
+      );
+    }
+    
     return NextResponse.json(
       { 
         success: false, 
-        error: (error as Error).message 
+        error: errorMessage 
       }, 
       { status: 500 }
     );
